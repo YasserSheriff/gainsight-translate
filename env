@@ -1,0 +1,4 @@
+IBM_CLOUD_API_KEY=<ibm_cloud_apikey>
+WX_PROJECT_ID=<project_id>
+WX_LANGCHECK_URL=https://us-south.ml.cloud.ibm.com
+WX_TRANSLATE_URL=https://us-south.ml.cloud.ibm.com
