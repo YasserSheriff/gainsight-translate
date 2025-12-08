@@ -1,0 +1,1 @@
+# gainsight-translate
