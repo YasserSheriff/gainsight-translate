@@ -3,6 +3,7 @@ import os
 import sys
 import uvicorn
 import requests
+import re
 
 from datetime import datetime, timedelta
 
@@ -112,11 +113,14 @@ async def langcheck(request: langcheckRequest, api_key: str = Security(get_api_k
        lang_check_response = watsonx (wx_langcheck_url, nlrequest)
     except Exception as e:
       nlResponse['error'] = str(e)
-    json_output = json.dumps(lang_check_response, indent=1)
-    print("output" + json_output)
-    nlResponse['response']=json_output
 
-    return langcheckResponse(response=nlResponse)
+    match = re.search(r"\{([\s\S]*?)\}", lang_check_response)
+    if match:
+        json_output = json.loads("{"+match.group(1).strip()+"}")
+        print(json_output)  
+
+    return langcheckResponse(response=json_output)
+
 
 @app.post("/translate")
 async def langcheck(request: translateRequest, api_key: str = Security(get_api_key)):
@@ -134,11 +138,14 @@ async def langcheck(request: translateRequest, api_key: str = Security(get_api_k
        translate_response = watsonx (wx_translate_url, nlrequest)
     except Exception as e:
       nlResponse['error'] = str(e)
-    json_output = json.dumps(translate_response, indent=1)
-    print("output" + json_output)
-    nlResponse['response']=json_output
+    
+    
+    match = re.search(r"\{([\s\S]*?)\}", translate_response)
+    if match:
+        json_output = json.loads("{"+match.group(1).strip()+"}")
+        print(json_output)
 
-    return translateResponse(response=nlResponse)
+    return translateResponse(response=json_output)
 
 
 
@@ -146,14 +153,13 @@ async def langcheck(request: translateRequest, api_key: str = Security(get_api_k
 #@app.post("/watsonx")
 def watsonx(deployment, payload):
     
-    #iam_token = get_auth_token(os.getenv("IBM_CLOUD_API_KEY", None))
     
     update_token_if_needed(os.getenv("IBM_CLOUD_API_KEY", None))
 
     response = requests.post(deployment, headers=headers, json=payload, verify=False).json()
-    print("RESPONSE : " + str(response))
+    #print("RESPONSE : " + str(response))
     message = response['results'][0]['generated_text']
-    print(" message: " + str(message))
+    #print(" message: " + str(message))
     return message
 
 
