@@ -1,9 +1,10 @@
 import json
 import os
+import re
 import sys
 import uvicorn
 import requests
-import re
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from datetime import datetime, timedelta
 
@@ -50,6 +51,7 @@ token_updated_at = None
 token = None
 headers = None
 
+
 def get_auth_token(api_key):
     auth_url = "https://iam.cloud.ibm.com/identity/token"
     
@@ -69,6 +71,7 @@ def get_auth_token(api_key):
     else:
         raise Exception("Failed to get authentication token")
 
+
 def update_token_if_needed(api_key):
     global token, token_updated_at, headers
     if token is None or datetime.now() - token_updated_at > timedelta(minutes=20):
@@ -80,7 +83,6 @@ def update_token_if_needed(api_key):
             "Accept": "application/json",
             "Authorization": f"Bearer {token}"
         }
-
 
 
 # Basic security for accessing the App
@@ -97,6 +99,7 @@ async def get_api_key(api_key_header: str = Security(api_key_header)):
 @app.get("/")
 def index():
     return {"IBM": "Build Engineering"}
+
 
 @app.post("/langcheck")
 async def langcheck(request: langcheckRequest, api_key: str = Security(get_api_key)):
@@ -125,44 +128,65 @@ async def langcheck(request: langcheckRequest, api_key: str = Security(get_api_k
 @app.post("/translate")
 async def langcheck(request: translateRequest, api_key: str = Security(get_api_key)):
     
-    print("Request: " + request.text)
-    text = request.text
-
-    nlrequest ={"parameters": 
-        { 
-            "prompt_variables": { "text": text } 
-        } 
-    }
     nlResponse = {}
-    try:
-       translate_response = watsonx (wx_translate_url, nlrequest)
+    try:            
+        print("Request: " + request.text)
+        text = request.text
+
+        # txt_chunks = text.split("\n")
+        
+        splitter = RecursiveCharacterTextSplitter(
+            chunk_size=15000, 
+            chunk_overlap=0,
+            separators=["\n\n", "\n", ". "]
+        )
+
+        txt_chunks = splitter.split_text(text)
+        
+        print("\n\n||> Len",len(txt_chunks))
+
+        translated_chunk = ""
+        # Language_chunk = ""
+
+        for chunk in txt_chunks:
+            print(chunk)    
+            nlrequest ={"parameters": 
+                { 
+                    "prompt_variables": { "text": chunk } 
+                } 
+            }
+            translate_response = watsonx(wx_translate_url, nlrequest)
+
+            print("translate_response")
+            print(translate_response)
+            match = re.search(r"\{([\s\S]*?)\}", translate_response.get("results")[0].get("generated_text"))
+            if match:
+                json_output = json.loads("{"+match.group(1).strip()+"}")
+                translated_chunk += json_output.get("Translation") #+"\n"
+                Language_chunk = json_output.get("Language")
+                print("\nLanguage_chunk\n\n",translated_chunk,"\n\nLanguage_chunk\n")
+        return translateResponse(response={"Translation":translated_chunk, "Language": Language_chunk})
+    
     except Exception as e:
-      nlResponse['error'] = str(e)
+        nlResponse['error'] = str(e)
+        return nlResponse
     
-    
-    match = re.search(r"\{([\s\S]*?)\}", translate_response)
-    if match:
-        json_output = json.loads("{"+match.group(1).strip()+"}")
-        print(json_output)
-
-    return translateResponse(response=json_output)
-
-
-
-
 #@app.post("/watsonx")
 def watsonx(deployment, payload):
     
+    #iam_token = get_auth_token(os.getenv("IBM_CLOUD_API_KEY", None))
     
     update_token_if_needed(os.getenv("IBM_CLOUD_API_KEY", None))
 
     response = requests.post(deployment, headers=headers, json=payload, verify=False).json()
-    #print("RESPONSE : " + str(response))
+    print("RESPONSE : " + str(response))
     message = response['results'][0]['generated_text']
-    #print(" message: " + str(message))
-    return message
+    print(" message: " + str(message))
+    return response
 
 
 if __name__ == '__main__':
     if 'uvicorn' not in sys.argv[0]:
         uvicorn.run("app:app", host='0.0.0.0', port=4050, reload=True)
+
+# Mi Nuevo Barrio\nAna es nueva en Madrid\nAhora tiene un piso pequeño cerca de la Plaza Mayor.
