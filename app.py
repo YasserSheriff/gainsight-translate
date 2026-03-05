@@ -138,7 +138,7 @@ async def langcheck(request: translateRequest, api_key: str = Security(get_api_k
         splitter = RecursiveCharacterTextSplitter(
             chunk_size=15000, 
             chunk_overlap=0,
-            separators=["\n\n", "\n", ". "]
+            separators=["\n\n", "\n", ". ", "。", "！", "？"]
         )
 
         txt_chunks = splitter.split_text(text)
@@ -156,6 +156,8 @@ async def langcheck(request: translateRequest, api_key: str = Security(get_api_k
                 } 
             }
             translate_response = watsonx(wx_translate_url, nlrequest)
+            generated_token_count = translate_response['results'][0]["generated_token_count"]
+            input_token_count = translate_response['results'][0]["input_token_count"]
 
             print("translate_response")
             print(translate_response)
@@ -165,7 +167,8 @@ async def langcheck(request: translateRequest, api_key: str = Security(get_api_k
                 translated_chunk += json_output.get("Translation") #+"\n"
                 Language_chunk = json_output.get("Language")
                 print("\nLanguage_chunk\n\n",translated_chunk,"\n\nLanguage_chunk\n")
-        return translateResponse(response={"Translation":translated_chunk, "Language": Language_chunk})
+                
+        return translateResponse(response={"Translation":translated_chunk, "Language": Language_chunk, "input_token_count": input_token_count, "generated_token_count": generated_token_count})
     
     except Exception as e:
         nlResponse['error'] = str(e)
@@ -181,6 +184,7 @@ def watsonx(deployment, payload):
     response = requests.post(deployment, headers=headers, json=payload, verify=False).json()
     print("RESPONSE : " + str(response))
     message = response['results'][0]['generated_text']
+    print(response['results'][0]["generated_token_count"])
     print(" message: " + str(message))
     return response
 
