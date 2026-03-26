@@ -2,6 +2,8 @@ import json
 import os
 import re
 import sys
+import time
+import uuid
 import uvicorn
 import requests
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -168,7 +170,7 @@ async def langcheck(request: translateRequest, api_key: str = Security(get_api_k
                 Language_chunk = json_output.get("Language")
                 print("\nLanguage_chunk\n\n",translated_chunk,"\n\nLanguage_chunk\n")
                 
-        return translateResponse(response={"Translation":translated_chunk, "Language": Language_chunk, "input_token_count": input_token_count, "generated_token_count": generated_token_count})
+        return translateResponse(response={"Translation":translated_chunk, "Language": Language_chunk, "input_token_count": input_token_count, "generated_token_count": generated_token_count, "request_id": uuid.uuid4(), "timestamp": int(time.time() * 1000)})
     
     except Exception as e:
         nlResponse['error'] = str(e)
@@ -192,5 +194,3 @@ def watsonx(deployment, payload):
 if __name__ == '__main__':
     if 'uvicorn' not in sys.argv[0]:
         uvicorn.run("app:app", host='0.0.0.0', port=4050, reload=True)
-
-# Mi Nuevo Barrio\nAna es nueva en Madrid\nAhora tiene un piso pequeño cerca de la Plaza Mayor.
